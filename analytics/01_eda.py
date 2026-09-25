@@ -1,111 +1,228 @@
-import pandas as pd
+import os
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
-from pathlib import Path
+import matplotlib.pyplot as plt
 
-# ---------------------------------------------------------
-# 1. Load Titanic dataset
-# ---------------------------------------------------------
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_PATH = BASE_DIR / "titanic.csv"
-CHART_DIR = BASE_DIR / "charts"
+# ============================================================
+# 1. LOAD TITANIC DATASET ONCE AND SAVE OFFLINE COPY
+# ============================================================
 
-CHART_DIR.mkdir(exist_ok=True)
+DATA_PATH = os.path.join(os.path.dirname(__file__), "titanic.csv")
+CHART_DIR = os.path.join(os.path.dirname(__file__), "charts")
 
-df = pd.read_csv(DATA_PATH)
+os.makedirs(CHART_DIR, exist_ok=True)
 
-print("\n===== DATASET PROFILE =====")
-print("\nShape:")
-print(df.shape)
+# Load the Titanic dataset exactly once from seaborn
+df = sns.load_dataset("titanic")
 
-print("\nInfo:")
+# Immediately save the downloaded dataset as an offline fallback
+df.to_csv(DATA_PATH, index=False)
+
+print("=" * 70)
+print("TITANIC DATASET LOADED")
+print("=" * 70)
+
+print(f"Shape: {df.shape}")
+
+print("\nData types:")
+print(df.dtypes)
+
+print("\nDataset info:")
 df.info()
 
-print("\nDescribe:")
+print("\nDescriptive statistics:")
 print(df.describe(include="all"))
 
-# ---------------------------------------------------------
-# 2. Missing value analysis
-# ---------------------------------------------------------
 
-print("\n===== MISSING VALUE PERCENTAGES =====")
+# ============================================================
+# 2. MISSING VALUE ANALYSIS
+# ============================================================
 
-missing_percent = (df.isnull().mean() * 100).round(2)
+print("\n" + "=" * 70)
+print("MISSING VALUE ANALYSIS")
+print("=" * 70)
+
+missing_count = df.isnull().sum()
+missing_percent = (missing_count / len(df)) * 100
 
 missing_table = pd.DataFrame({
-    "Missing_Count": df.isnull().sum(),
-    "Missing_Percentage": missing_percent
+    "missing_count": missing_count,
+    "missing_percent": missing_percent.round(2)
 })
 
-print(missing_table[missing_table["Missing_Count"] > 0])
+print(missing_table[missing_table["missing_count"] > 0])
 
-# ---------------------------------------------------------
-# 3. Cleaning
-# ---------------------------------------------------------
+
+# ============================================================
+# 3. MISSING VALUE TREATMENT
+# ============================================================
 
 cleaned_df = df.copy()
 
-# Age: missing percentage is between 5% and 30%
-# Therefore, median imputation is used.
-cleaned_df["age"] = cleaned_df["age"].fillna(
-    cleaned_df["age"].median()
-)
+print("\n" + "=" * 70)
+print("MISSING VALUE TREATMENT")
+print("=" * 70)
 
-# Embarked: very small percentage of missing values
-# Mode imputation is used.
-cleaned_df["embarked"] = cleaned_df["embarked"].fillna(
-    cleaned_df["embarked"].mode()[0]
-)
+# AGE: 5% to 30% missing -> median imputation
+age_missing_pct = cleaned_df["age"].isnull().mean() * 100
 
-# ---------------------------------------------------------
-# 4. Univariate Analysis - Age
-# ---------------------------------------------------------
+if 5 <= age_missing_pct <= 30:
+    age_median = cleaned_df["age"].median()
+    cleaned_df["age"] = cleaned_df["age"].fillna(age_median)
+
+    print(
+        f"age: {age_missing_pct:.2f}% missing -> "
+        f"median imputation using {age_median:.2f}"
+    )
+
+
+# EMBARKED: less than 5% missing -> drop affected rows
+embarked_missing_pct = cleaned_df["embarked"].isnull().mean() * 100
+
+if embarked_missing_pct < 5:
+    before = len(cleaned_df)
+
+    cleaned_df = cleaned_df.dropna(subset=["embarked"])
+
+    after = len(cleaned_df)
+
+    print(
+        f"embarked: {embarked_missing_pct:.2f}% missing -> "
+        f"dropped {before - after} affected rows"
+    )
+
+
+# EMBARK_TOWN: less than 5% missing -> drop affected rows
+embark_town_missing_pct = cleaned_df["embark_town"].isnull().mean() * 100
+
+if embark_town_missing_pct < 5:
+    before = len(cleaned_df)
+
+    cleaned_df = cleaned_df.dropna(subset=["embark_town"])
+
+    after = len(cleaned_df)
+
+    print(
+        f"embark_town: {embark_town_missing_pct:.2f}% missing -> "
+        f"dropped {before - after} affected rows"
+    )
+
+
+# DECK: more than 30% missing -> drop high-missing column
+deck_missing_pct = cleaned_df["deck"].isnull().mean() * 100
+
+if deck_missing_pct > 30:
+    cleaned_df = cleaned_df.drop(columns=["deck"])
+
+    print(
+        f"deck: {deck_missing_pct:.2f}% missing -> "
+        "column dropped because missingness is very high"
+    )
+
+
+print("\nRemaining missing values:")
+print(cleaned_df.isnull().sum())
+
+
+# Save cleaned dataset so subsequent modules can work offline
+cleaned_df.to_csv(DATA_PATH, index=False)
+
+print(f"\nCleaned dataset saved to: {DATA_PATH}")
+print(f"Cleaned shape: {cleaned_df.shape}")
+
+
+# ============================================================
+# 4. AGE HISTOGRAM
+# ============================================================
 
 plt.figure(figsize=(8, 5))
-sns.histplot(cleaned_df["age"], bins=30, kde=True)
+
+sns.histplot(cleaned_df["age"], kde=True)
+
 plt.title("Age Distribution")
 plt.xlabel("Age")
 plt.ylabel("Count")
 plt.tight_layout()
-plt.savefig(CHART_DIR / "age_histogram.png")
+
+plt.savefig(
+    os.path.join(CHART_DIR, "age_histogram.png"),
+    dpi=150
+)
+
 plt.close()
 
-# Age box plot
+
+# ============================================================
+# 5. AGE BOXPLOT
+# ============================================================
+
 plt.figure(figsize=(8, 5))
+
 sns.boxplot(x=cleaned_df["age"])
-plt.title("Age Box Plot")
+
+plt.title("Age Boxplot")
 plt.xlabel("Age")
 plt.tight_layout()
-plt.savefig(CHART_DIR / "age_boxplot.png")
+
+plt.savefig(
+    os.path.join(CHART_DIR, "age_boxplot.png"),
+    dpi=150
+)
+
 plt.close()
 
-# ---------------------------------------------------------
-# 5. Univariate Analysis - Fare
-# ---------------------------------------------------------
+
+# ============================================================
+# 6. FARE HISTOGRAM
+# ============================================================
 
 plt.figure(figsize=(8, 5))
-sns.histplot(cleaned_df["fare"], bins=30, kde=True)
+
+sns.histplot(cleaned_df["fare"], kde=True)
+
 plt.title("Fare Distribution")
 plt.xlabel("Fare")
 plt.ylabel("Count")
 plt.tight_layout()
-plt.savefig(CHART_DIR / "fare_histogram.png")
+
+plt.savefig(
+    os.path.join(CHART_DIR, "fare_histogram.png"),
+    dpi=150
+)
+
 plt.close()
 
-# Fare box plot
+
+# ============================================================
+# 7. FARE BOXPLOT
+# ============================================================
+
 plt.figure(figsize=(8, 5))
+
 sns.boxplot(x=cleaned_df["fare"])
-plt.title("Fare Box Plot")
+
+plt.title("Fare Boxplot")
 plt.xlabel("Fare")
 plt.tight_layout()
-plt.savefig(CHART_DIR / "fare_boxplot.png")
+
+plt.savefig(
+    os.path.join(CHART_DIR, "fare_boxplot.png"),
+    dpi=150
+)
+
 plt.close()
 
-# ---------------------------------------------------------
-# 6. IQR Outlier Counts
-# ---------------------------------------------------------
+
+# ============================================================
+# 8. IQR OUTLIER ANALYSIS
+# ============================================================
+
+print("\n" + "=" * 70)
+print("IQR OUTLIER ANALYSIS")
+print("=" * 70)
+
 
 def iqr_outlier_count(series):
     q1 = series.quantile(0.25)
@@ -116,136 +233,241 @@ def iqr_outlier_count(series):
     lower_bound = q1 - 1.5 * iqr
     upper_bound = q3 + 1.5 * iqr
 
-    outliers = ((series < lower_bound) | (series > upper_bound)).sum()
+    outliers = series[
+        (series < lower_bound) |
+        (series > upper_bound)
+    ]
 
-    return outliers, lower_bound, upper_bound
+    return {
+        "Q1": q1,
+        "Q3": q3,
+        "IQR": iqr,
+        "lower_bound": lower_bound,
+        "upper_bound": upper_bound,
+        "outlier_count": len(outliers)
+    }
 
 
-age_outliers, age_lower, age_upper = iqr_outlier_count(
-    cleaned_df["age"]
-)
+age_outliers = iqr_outlier_count(cleaned_df["age"])
+fare_outliers = iqr_outlier_count(cleaned_df["fare"])
 
-fare_outliers, fare_lower, fare_upper = iqr_outlier_count(
-    cleaned_df["fare"]
-)
+print("\nAge:")
+print(age_outliers)
 
-print("\n===== IQR OUTLIERS =====")
-print(f"Age outliers: {age_outliers}")
-print(f"Age lower bound: {age_lower:.2f}")
-print(f"Age upper bound: {age_upper:.2f}")
+print("\nFare:")
+print(fare_outliers)
 
-print(f"\nFare outliers: {fare_outliers}")
-print(f"Fare lower bound: {fare_lower:.2f}")
-print(f"Fare upper bound: {fare_upper:.2f}")
 
-# ---------------------------------------------------------
-# 7. Fare Mean / Median / Mode
-# ---------------------------------------------------------
+# ============================================================
+# 9. FARE MEAN / MEDIAN / MODE / SKEWNESS
+# ============================================================
+
+print("\n" + "=" * 70)
+print("FARE STATISTICS AND SKEWNESS")
+print("=" * 70)
 
 fare_mean = cleaned_df["fare"].mean()
 fare_median = cleaned_df["fare"].median()
-fare_mode = cleaned_df["fare"].mode()[0]
+fare_mode = cleaned_df["fare"].mode().iloc[0]
+fare_skewness = cleaned_df["fare"].skew()
 
-print("\n===== FARE STATISTICS =====")
-print(f"Fare Mean: {fare_mean:.2f}")
-print(f"Fare Median: {fare_median:.2f}")
-print(f"Fare Mode: {fare_mode:.2f}")
+print(f"Mean   : {fare_mean:.4f}")
+print(f"Median : {fare_median:.4f}")
+print(f"Mode   : {fare_mode:.4f}")
+print(f"Skewness: {fare_skewness:.4f}")
 
-# Skew direction
-if fare_mean > fare_median:
-    skew_direction = "Right-skewed"
+if fare_mean > fare_median > fare_mode:
+    skew_conclusion = "Fare is positively/right skewed because mean > median > mode."
+elif fare_mean < fare_median < fare_mode:
+    skew_conclusion = "Fare is negatively/left skewed because mean < median < mode."
+elif fare_mean > fare_median:
+    skew_conclusion = "Fare shows positive/right skewness because mean is greater than median."
 elif fare_mean < fare_median:
-    skew_direction = "Left-skewed"
+    skew_conclusion = "Fare shows negative/left skewness because mean is lower than median."
 else:
-    skew_direction = "Approximately symmetric"
+    skew_conclusion = "Mean and median are approximately similar, suggesting limited skewness."
 
-print(f"Fare Distribution: {skew_direction}")
+print("\nConclusion:")
+print(skew_conclusion)
 
-# ---------------------------------------------------------
-# 8. Bivariate Analysis
-# ---------------------------------------------------------
 
-# Survival rate by sex
-survival_by_sex = cleaned_df.groupby("sex")["survived"].mean()
+# ============================================================
+# 10. SURVIVAL BY SEX USING BOOLEAN MASKING
+# ============================================================
 
-print("\n===== SURVIVAL RATE BY SEX =====")
-print(survival_by_sex)
+print("\n" + "=" * 70)
+print("SURVIVAL BY SEX - BOOLEAN MASKING")
+print("=" * 70)
 
+sex_results = []
+
+for sex in cleaned_df["sex"].dropna().unique():
+
+    mask = cleaned_df["sex"] == sex
+
+    group = cleaned_df.loc[mask]
+
+    survival_rate = group["survived"].mean()
+
+    sex_results.append({
+        "sex": sex,
+        "passengers": len(group),
+        "survival_rate": survival_rate
+    })
+
+sex_survival = pd.DataFrame(sex_results)
+
+print(sex_survival)
+
+
+# Chart
 plt.figure(figsize=(8, 5))
-survival_by_sex.plot(kind="bar")
-plt.title("Survival Rate by Sex")
-plt.xlabel("Sex")
-plt.ylabel("Survival Rate")
-plt.ylim(0, 1)
-plt.tight_layout()
-plt.savefig(CHART_DIR / "survival_by_sex.png")
-plt.close()
 
-# Survival rate by passenger class
-survival_by_pclass = cleaned_df.groupby("pclass")["survived"].mean()
-
-print("\n===== SURVIVAL RATE BY PCLASS =====")
-print(survival_by_pclass)
-
-plt.figure(figsize=(8, 5))
-survival_by_pclass.plot(kind="bar")
-plt.title("Survival Rate by Passenger Class")
-plt.xlabel("Passenger Class")
-plt.ylabel("Survival Rate")
-plt.ylim(0, 1)
-plt.tight_layout()
-plt.savefig(CHART_DIR / "survival_by_pclass.png")
-plt.close()
-
-# Survival rate by sex + pclass
-survival_by_sex_pclass = (
-    cleaned_df
-    .groupby(["sex", "pclass"])["survived"]
-    .mean()
-    .reset_index()
+sns.barplot(
+    data=sex_survival,
+    x="sex",
+    y="survival_rate"
 )
 
-print("\n===== SURVIVAL RATE BY SEX + PCLASS =====")
-print(survival_by_sex_pclass)
+plt.title("Survival Rate by Sex")
+plt.ylabel("Survival Rate")
+plt.xlabel("Sex")
+plt.ylim(0, 1)
 
-plt.figure(figsize=(9, 5))
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(CHART_DIR, "survival_by_sex.png"),
+    dpi=150
+)
+
+plt.close()
+
+
+# ============================================================
+# 11. SURVIVAL BY PCLASS USING BOOLEAN MASKING
+# ============================================================
+
+print("\n" + "=" * 70)
+print("SURVIVAL BY PCLASS - BOOLEAN MASKING")
+print("=" * 70)
+
+pclass_results = []
+
+for pclass in sorted(cleaned_df["pclass"].dropna().unique()):
+
+    mask = cleaned_df["pclass"] == pclass
+
+    group = cleaned_df.loc[mask]
+
+    survival_rate = group["survived"].mean()
+
+    pclass_results.append({
+        "pclass": pclass,
+        "passengers": len(group),
+        "survival_rate": survival_rate
+    })
+
+pclass_survival = pd.DataFrame(pclass_results)
+
+print(pclass_survival)
+
+
+# Chart
+plt.figure(figsize=(8, 5))
+
 sns.barplot(
-    data=survival_by_sex_pclass,
+    data=pclass_survival,
     x="pclass",
-    y="survived",
+    y="survival_rate"
+)
+
+plt.title("Survival Rate by Passenger Class")
+plt.ylabel("Survival Rate")
+plt.xlabel("Passenger Class")
+plt.ylim(0, 1)
+
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(CHART_DIR, "survival_by_pclass.png"),
+    dpi=150
+)
+
+plt.close()
+
+
+# ============================================================
+# 12. SURVIVAL BY SEX + PCLASS USING BOOLEAN MASKING
+# ============================================================
+
+print("\n" + "=" * 70)
+print("SURVIVAL BY SEX + PCLASS - BOOLEAN MASKING")
+print("=" * 70)
+
+sex_pclass_results = []
+
+for sex in sorted(cleaned_df["sex"].dropna().unique()):
+
+    for pclass in sorted(cleaned_df["pclass"].dropna().unique()):
+
+        mask = (
+            (cleaned_df["sex"] == sex) &
+            (cleaned_df["pclass"] == pclass)
+        )
+
+        group = cleaned_df.loc[mask]
+
+        if len(group) > 0:
+
+            survival_rate = group["survived"].mean()
+
+            sex_pclass_results.append({
+                "sex": sex,
+                "pclass": pclass,
+                "passengers": len(group),
+                "survival_rate": survival_rate
+            })
+
+sex_pclass_survival = pd.DataFrame(sex_pclass_results)
+
+print(sex_pclass_survival)
+
+
+# Chart
+plt.figure(figsize=(9, 5))
+
+sns.barplot(
+    data=sex_pclass_survival,
+    x="pclass",
+    y="survival_rate",
     hue="sex"
 )
+
 plt.title("Survival Rate by Sex and Passenger Class")
 plt.xlabel("Passenger Class")
 plt.ylabel("Survival Rate")
 plt.ylim(0, 1)
+
 plt.tight_layout()
-plt.savefig(CHART_DIR / "survival_by_sex_pclass.png")
+
+plt.savefig(
+    os.path.join(CHART_DIR, "survival_by_sex_pclass.png"),
+    dpi=150
+)
+
 plt.close()
 
-# ---------------------------------------------------------
-# 9. Boolean Masking Examples
-# ---------------------------------------------------------
 
-female_survivors = cleaned_df[
-    (cleaned_df["sex"] == "female") &
-    (cleaned_df["survived"] == 1)
-]
+# ============================================================
+# 13. EXACT SIX-COLUMN CORRELATION MATRIX
+# ============================================================
 
-third_class_survivors = cleaned_df[
-    (cleaned_df["pclass"] == 3) &
-    (cleaned_df["survived"] == 1)
-]
+print("\n" + "=" * 70)
+print("CORRELATION ANALYSIS")
+print("=" * 70)
 
-print("\n===== BOOLEAN MASKING =====")
-print(f"Female survivors: {len(female_survivors)}")
-print(f"Third-class survivors: {len(third_class_survivors)}")
-
-# ---------------------------------------------------------
-# 10. Correlation Matrix - EXACT SIX COLUMNS
-# ---------------------------------------------------------
-
-corr_columns = [
+correlation_columns = [
     "survived",
     "pclass",
     "age",
@@ -254,69 +476,321 @@ corr_columns = [
     "fare"
 ]
 
-corr_matrix = cleaned_df[corr_columns].corr()
+corr = cleaned_df[correlation_columns].corr()
 
-print("\n===== CORRELATION MATRIX =====")
-print(corr_matrix)
+print("\nCorrelation matrix:")
+print(corr)
 
+
+# Heatmap
 plt.figure(figsize=(9, 7))
+
 sns.heatmap(
-    corr_matrix,
+    corr,
     annot=True,
-    fmt=".2f",
     cmap="coolwarm",
-    square=True
+    fmt=".2f"
 )
 
-plt.title("Titanic Correlation Matrix")
+plt.title("Titanic Correlation Heatmap")
 plt.tight_layout()
-plt.savefig(CHART_DIR / "correlation_heatmap.png")
+
+plt.savefig(
+    os.path.join(CHART_DIR, "correlation_heatmap.png"),
+    dpi=150
+)
+
 plt.close()
 
-# ---------------------------------------------------------
-# 11. Top Two Absolute Off-Diagonal Correlations
-# ---------------------------------------------------------
 
-corr_pairs = corr_matrix.where(
-    np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)
+# ============================================================
+# 14. TWO STRONGEST ABSOLUTE OFF-DIAGONAL CORRELATIONS
+# ============================================================
+
+corr_abs = corr.abs().copy()
+
+for i in range(len(corr_abs)):
+    corr_abs.iloc[i, i] = np.nan
+    
+top_pairs = (
+    corr_abs
+    .stack()
+    .sort_values(ascending=False)
 )
 
-corr_pairs = corr_pairs.stack()
+unique_pairs = []
 
-top_two = corr_pairs.abs().sort_values(ascending=False).head(2)
+for (col1, col2), value in top_pairs.items():
 
-print("\n===== TOP TWO ABSOLUTE CORRELATIONS =====")
+    pair = frozenset([col1, col2])
 
-for pair, value in top_two.items():
-    actual_value = corr_matrix.loc[pair[0], pair[1]]
+    if pair not in [
+        frozenset([a, b])
+        for a, b, _ in unique_pairs
+    ]:
+
+        unique_pairs.append(
+            (col1, col2, corr.loc[col1, col2])
+        )
+
+    if len(unique_pairs) == 2:
+        break
+
+
+print("\nTwo strongest absolute off-diagonal correlations:")
+
+for col1, col2, value in unique_pairs:
+
     print(
-        f"{pair[0]} vs {pair[1]}: "
-        f"{actual_value:.3f}"
+        f"{col1} <-> {col2}: "
+        f"{value:.4f}"
     )
 
-# ---------------------------------------------------------
-# 12. Standardization Check - Exploratory Only
-# ---------------------------------------------------------
 
-print("\n===== STANDARDIZATION CHECK =====")
+# ============================================================
+# 15. Z-SCORE STANDARDIZATION
+# ============================================================
 
-for column in ["age", "fare"]:
+print("\n" + "=" * 70)
+print("Z-SCORE STANDARDIZATION")
+print("=" * 70)
 
-    mean_before = cleaned_df[column].mean()
-    std_before = cleaned_df[column].std()
+standardization_df = cleaned_df[
+    ["age", "fare"]
+].copy()
 
-    z_score = (
-        cleaned_df[column] - mean_before
-    ) / std_before
+before_mean = standardization_df.mean()
+before_std = standardization_df.std()
 
-    mean_after = z_score.mean()
-    std_after = z_score.std()
+standardized_df = (
+    standardization_df -
+    standardization_df.mean()
+) / standardization_df.std()
 
-    print(f"\n{column.upper()}")
-    print(f"Before standardization - Mean: {mean_before:.4f}")
-    print(f"Before standardization - Std: {std_before:.4f}")
-    print(f"After standardization - Mean: {mean_after:.4f}")
-    print(f"After standardization - Std: {std_after:.4f}")
+after_mean = standardized_df.mean()
+after_std = standardized_df.std()
 
-print("\n===== EDA COMPLETED SUCCESSFULLY =====")
-print(f"Charts saved in: {CHART_DIR}")
+print("\nBefore standardization:")
+print(
+    pd.DataFrame({
+        "mean": before_mean,
+        "std": before_std
+    })
+)
+
+print("\nAfter standardization:")
+print(
+    pd.DataFrame({
+        "mean": after_mean,
+        "std": after_std
+    })
+)
+
+
+# ============================================================
+# 16. MULTIVARIATE CHART 1
+# ============================================================
+
+plt.figure(figsize=(9, 6))
+
+sns.barplot(
+    data=sex_pclass_survival,
+    x="pclass",
+    y="survival_rate",
+    hue="sex"
+)
+
+plt.title("Multivariate Chart 1: Survival by Sex and Class")
+plt.xlabel("Passenger Class")
+plt.ylabel("Survival Rate")
+plt.ylim(0, 1)
+
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(CHART_DIR, "multivariate_1_sex_pclass.png"),
+    dpi=150
+)
+
+plt.close()
+
+
+# ============================================================
+# 17. MULTIVARIATE CHART 2
+# ============================================================
+
+plt.figure(figsize=(9, 6))
+
+sns.scatterplot(
+    data=cleaned_df,
+    x="age",
+    y="fare",
+    hue="survived",
+    style="sex",
+    alpha=0.7
+)
+
+plt.title("Multivariate Chart 2: Age vs Fare by Survival and Sex")
+plt.xlabel("Age")
+plt.ylabel("Fare")
+
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(CHART_DIR, "multivariate_2_age_fare.png"),
+    dpi=150
+)
+
+plt.close()
+
+
+# ============================================================
+# 18. MULTIVARIATE CHART 3
+# ============================================================
+
+age_bins = [0, 12, 18, 30, 45, 60, 100]
+age_labels = [
+    "0-12",
+    "13-18",
+    "19-30",
+    "31-45",
+    "46-60",
+    "61+"
+]
+
+age_group_df = cleaned_df.copy()
+
+age_group_df["age_group"] = pd.cut(
+    age_group_df["age"],
+    bins=age_bins,
+    labels=age_labels,
+    include_lowest=True
+)
+
+age_survival = (
+    age_group_df
+    .groupby(
+        ["age_group", "sex"],
+        observed=False
+    )["survived"]
+    .mean()
+    .reset_index()
+)
+
+plt.figure(figsize=(10, 6))
+
+sns.lineplot(
+    data=age_survival,
+    x="age_group",
+    y="survived",
+    hue="sex",
+    marker="o"
+)
+
+plt.title("Multivariate Chart 3: Survival by Age Group and Sex")
+plt.xlabel("Age Group")
+plt.ylabel("Survival Rate")
+plt.ylim(0, 1)
+
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(CHART_DIR, "multivariate_3_age_sex.png"),
+    dpi=150
+)
+
+plt.close()
+
+
+# ============================================================
+# 19. MULTIVARIATE CHART 4
+# ============================================================
+
+plt.figure(figsize=(10, 6))
+
+sns.boxplot(
+    data=cleaned_df,
+    x="pclass",
+    y="fare",
+    hue="survived"
+)
+
+plt.title("Multivariate Chart 4: Fare by Class and Survival")
+plt.xlabel("Passenger Class")
+plt.ylabel("Fare")
+
+plt.tight_layout()
+
+plt.savefig(
+    os.path.join(CHART_DIR, "multivariate_4_fare_class_survival.png"),
+    dpi=150
+)
+
+plt.close()
+
+
+# ============================================================
+# 20. WRITTEN MULTIVARIATE INTERPRETATIONS
+# ============================================================
+
+interpretations = """
+
+MULTIVARIATE CHART INTERPRETATIONS
+===================================
+
+1. Survival by Sex and Passenger Class:
+Survival differs substantially across both sex and passenger class.
+Female passengers generally show higher survival rates than male passengers within the same class.
+Passenger class also separates survival outcomes, with first-class passengers generally showing higher survival than lower classes.
+
+2. Age vs Fare by Survival and Sex:
+The scatter plot shows the relationship between passenger age, fare and survival while also separating observations by sex.
+Higher fares are concentrated among certain passenger groups, while survival is distributed differently across age and fare levels.
+This indicates that fare, age and sex together provide useful information for understanding survival patterns.
+
+3. Survival by Age Group and Sex:
+Survival rates vary across age groups and differ between male and female passengers.
+The comparison shows that survival is not determined by age alone because the pattern changes between the two sexes.
+Age group therefore provides additional context when survival is analyzed together with sex.
+
+4. Fare by Class and Survival:
+Fare distributions differ strongly across passenger classes.
+First-class passengers generally paid higher fares, and fare values also vary between survivors and non-survivors.
+This demonstrates the combined relationship between socioeconomic class, fare and survival.
+"""
+
+interpretation_path = os.path.join(
+    os.path.dirname(__file__),
+    "multivariate_interpretations.txt"
+)
+
+with open(
+    interpretation_path,
+    "w",
+    encoding="utf-8"
+) as file:
+
+    file.write(interpretations)
+
+
+# ============================================================
+# 21. FINAL SUMMARY
+# ============================================================
+
+print("\n" + "=" * 70)
+print("EDA COMPLETED SUCCESSFULLY")
+print("=" * 70)
+
+print(f"Original dataset shape : {df.shape}")
+print(f"Cleaned dataset shape  : {cleaned_df.shape}")
+
+print("\nCharts saved in:")
+print(CHART_DIR)
+
+print("\nMultivariate interpretations saved in:")
+print(interpretation_path)
+
+print("\nRequired correlation columns:")
+print(correlation_columns)
+
+print("\nEDA pipeline completed.")

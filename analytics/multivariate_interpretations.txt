@@ -1,0 +1,24 @@
+
+
+MULTIVARIATE CHART INTERPRETATIONS
+===================================
+
+1. Survival by Sex and Passenger Class:
+Survival differs substantially across both sex and passenger class.
+Female passengers generally show higher survival rates than male passengers within the same class.
+Passenger class also separates survival outcomes, with first-class passengers generally showing higher survival than lower classes.
+
+2. Age vs Fare by Survival and Sex:
+The scatter plot shows the relationship between passenger age, fare and survival while also separating observations by sex.
+Higher fares are concentrated among certain passenger groups, while survival is distributed differently across age and fare levels.
+This indicates that fare, age and sex together provide useful information for understanding survival patterns.
+
+3. Survival by Age Group and Sex:
+Survival rates vary across age groups and differ between male and female passengers.
+The comparison shows that survival is not determined by age alone because the pattern changes between the two sexes.
+Age group therefore provides additional context when survival is analyzed together with sex.
+
+4. Fare by Class and Survival:
+Fare distributions differ strongly across passenger classes.
+First-class passengers generally paid higher fares, and fare values also vary between survivors and non-survivors.
+This demonstrates the combined relationship between socioeconomic class, fare and survival.

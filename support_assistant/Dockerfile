@@ -6,8 +6,8 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY support_assistant ./support_assistant
 
-EXPOSE 8001
+EXPOSE 7860
 
-CMD ["uvicorn", "support_assistant.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "support_assistant.main:app", "--host", "0.0.0.0", "--port", "7860"]
