@@ -1,0 +1,21 @@
+Policy: Delivery
+
+Question: How long does delivery usually take?
+
+Answer: Standard delivery usually takes 10 to 30 minutes depending on store availability, order size, traffic, and delivery partner availability.
+
+---
+
+Policy: Late Delivery
+
+Question: What should I do if my order is delayed?
+
+Answer: Check the order tracking status first. If the order remains delayed beyond the expected delivery window, contact customer support with the order ID.
+
+---
+
+Policy: Delivery Tracking
+
+Question: How can I track my order?
+
+Answer: Use the order tracking section in the application to view the current order status and delivery progress.

@@ -1,0 +1,21 @@
+Policy: Customer Support
+
+Question: How can I contact customer support?
+
+Answer: Contact customer support through the available support option in the application and provide your order ID and a clear description of the issue.
+
+---
+
+Policy: Order ID
+
+Question: What information should I provide to support?
+
+Answer: Provide the order ID, the issue you are facing, and relevant item details. This helps the support team investigate the problem.
+
+---
+
+Policy: Unrecognized Question
+
+Question: What happens when the assistant cannot find a relevant policy?
+
+Answer: The assistant should clearly state that no sufficiently relevant policy was found and recommend contacting customer support instead of guessing.

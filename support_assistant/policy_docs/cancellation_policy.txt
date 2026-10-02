@@ -1,0 +1,21 @@
+Policy: Order Cancellation
+
+Question: Can I cancel my order?
+
+Answer: An order may be cancelled before preparation or dispatch, subject to the order status and applicable conditions.
+
+---
+
+Policy: Cancellation After Dispatch
+
+Question: Can I cancel an order after it has been dispatched?
+
+Answer: Cancellation may not be available after dispatch. Check the current order status or contact customer support for assistance.
+
+---
+
+Policy: Cancellation Charges
+
+Question: Will I be charged for cancelling an order?
+
+Answer: Any applicable cancellation amount depends on the order status and the conditions associated with the order.

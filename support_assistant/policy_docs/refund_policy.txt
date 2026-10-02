@@ -1,0 +1,21 @@
+Policy: Refund
+
+Question: When can I request a refund?
+
+Answer: A refund can be requested for eligible issues such as missing items, incorrect items, damaged items, or an order that was not delivered.
+
+---
+
+Policy: Missing Item
+
+Question: What happens if an item is missing from my order?
+
+Answer: Report the missing item through customer support with the order ID and item details. The support team can review the issue and process an eligible refund.
+
+---
+
+Policy: Refund Processing
+
+Question: How long does a refund take?
+
+Answer: Once approved, the refund processing time depends on the payment method and the financial institution used for the transaction.
