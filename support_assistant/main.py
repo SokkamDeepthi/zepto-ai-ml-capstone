@@ -4,9 +4,11 @@ from pathlib import Path
 from typing import TypedDict
 
 import chromadb
+from chromadb.utils import embedding_functions
+
 from fastapi import FastAPI
 from pydantic import BaseModel, Field, ValidationError
-from sentence_transformers import SentenceTransformer
+
 from langgraph.graph import StateGraph, START, END
 
 
@@ -20,10 +22,12 @@ DOCS_DIR = BASE_DIR / "docs"
 CHROMA_DIR = BASE_DIR / "chroma_db"
 
 COLLECTION_NAME = "zepto_policy_corpus"
+
+# Chroma's default embedding model is all-MiniLM-L6-v2.
+# It uses Chroma's ONNX-based implementation instead of
+# loading SentenceTransformer/PyTorch directly.
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
-# MOCK_LLM=1 by default
-# Set MOCK_LLM=0 only if using the optional Groq LLM path.
 MOCK_LLM = os.getenv("MOCK_LLM", "1") != "0"
 
 
@@ -39,7 +43,7 @@ app = FastAPI(
 
 
 # ============================================================
-# 3. PYDANTIC REQUEST / RESPONSE SCHEMAS
+# 3. PYDANTIC SCHEMAS
 # ============================================================
 
 class AskRequest(BaseModel):
@@ -71,27 +75,23 @@ class AssistantState(TypedDict, total=False):
 
 
 # ============================================================
-# 5. LOCAL EMBEDDING MODEL
+# 5. CHROMADB SETUP
 # ============================================================
 
 print("=" * 60)
-print("LOADING EMBEDDING MODEL")
+print("STARTING CHROMADB")
 print("=" * 60)
-
-embedding_model = SentenceTransformer(
-    EMBEDDING_MODEL_NAME
-)
-
-print("Embedding model:", EMBEDDING_MODEL_NAME)
-
-
-# ============================================================
-# 6. CHROMADB SETUP
-# ============================================================
 
 chroma_client = chromadb.PersistentClient(
     path=str(CHROMA_DIR)
 )
+
+
+# Use Chroma's built-in ONNX embedding function.
+# This avoids importing SentenceTransformer/PyTorch.
+
+embedding_function = embedding_functions.DefaultEmbeddingFunction()
+
 
 collection = chroma_client.get_or_create_collection(
     name=COLLECTION_NAME,
@@ -99,11 +99,17 @@ collection = chroma_client.get_or_create_collection(
         "description": "Zepto policy corpus",
         "hnsw:space": "cosine",
     },
+    embedding_function=embedding_function,
 )
 
 
+print("Embedding model:", EMBEDDING_MODEL_NAME)
+print("Collection:", COLLECTION_NAME)
+print("Storage:", CHROMA_DIR)
+
+
 # ============================================================
-# 7. LOAD EXACTLY 8 POLICY DOCUMENTS
+# 6. LOAD EXACTLY 8 POLICY DOCUMENTS
 # ============================================================
 
 def load_documents():
@@ -153,7 +159,7 @@ def load_documents():
 
 
 # ============================================================
-# 8. BUILD CHROMADB INDEX
+# 7. BUILD CHROMADB INDEX
 # ============================================================
 
 def build_index():
@@ -164,11 +170,6 @@ def build_index():
     print("BUILDING CHROMADB INDEX")
     print("=" * 60)
 
-    embeddings = embedding_model.encode(
-        documents,
-        normalize_embeddings=True,
-    ).tolist()
-
     # Remove old records
     existing = collection.get()
 
@@ -177,11 +178,11 @@ def build_index():
             ids=existing["ids"]
         )
 
-    # Add fresh records
+    # Chroma automatically creates embeddings using
+    # its built-in embedding function.
     collection.add(
         ids=document_ids,
         documents=documents,
-        embeddings=embeddings,
         metadatas=metadatas,
     )
 
@@ -190,22 +191,13 @@ def build_index():
     print("=" * 60)
 
     print("Documents:", len(documents))
-    print(
-        "Embedding model:",
-        EMBEDDING_MODEL_NAME
-    )
-    print(
-        "Collection:",
-        COLLECTION_NAME
-    )
-    print(
-        "Storage:",
-        CHROMA_DIR
-    )
+    print("Embedding model:", EMBEDDING_MODEL_NAME)
+    print("Collection:", COLLECTION_NAME)
+    print("Storage:", CHROMA_DIR)
 
 
 # ============================================================
-# 9. STRUCTURED PROMPT TEMPLATE
+# 8. STRUCTURED PROMPT TEMPLATE
 # ============================================================
 
 PROMPT_TEMPLATE = """
@@ -242,7 +234,7 @@ RETRIEVED CONTEXT:
 
 
 # ============================================================
-# 10. POLICY KEYWORDS
+# 9. POLICY KEYWORDS
 # ============================================================
 
 POLICY_KEYWORDS = [
@@ -265,7 +257,7 @@ POLICY_KEYWORDS = [
 
 
 # ============================================================
-# 11. CLASSIFY INTENT
+# 10. CLASSIFY INTENT
 # ============================================================
 
 def classify_intent(
@@ -303,7 +295,7 @@ def classify_intent(
 
 
 # ============================================================
-# 12. OPTIONAL REAL LLM INTENT CLASSIFICATION
+# 11. OPTIONAL REAL LLM INTENT CLASSIFICATION
 # ============================================================
 
 def classify_with_real_llm(
@@ -373,7 +365,7 @@ Return only the classification name.
 
 
 # ============================================================
-# 13. RETRIEVAL
+# 12. RETRIEVAL
 # ============================================================
 
 def retrieve_top_k(
@@ -381,13 +373,8 @@ def retrieve_top_k(
     k: int = 3,
 ):
 
-    query_embedding = embedding_model.encode(
-        [query],
-        normalize_embeddings=True,
-    ).tolist()
-
     result = collection.query(
-        query_embeddings=query_embedding,
+        query_texts=[query],
         n_results=k,
     )
 
@@ -410,7 +397,7 @@ def retrieve_top_k(
 
 
 # ============================================================
-# 14. RETRIEVE AND ANSWER
+# 13. RETRIEVE AND ANSWER
 # ============================================================
 
 def retrieve_and_answer(
@@ -443,7 +430,7 @@ def retrieve_and_answer(
             "retrieved_distances": [],
         }
 
-    # Use the most relevant document
+    # Most relevant document
     top_chunk = documents[0].strip()
 
     # Chroma cosine distance:
@@ -458,10 +445,6 @@ def retrieve_and_answer(
     )
 
     if MOCK_LLM:
-
-        # IMPORTANT:
-        # Do NOT truncate the answer to 200 characters.
-        # Return the complete retrieved policy text.
 
         answer = (
             "Based on the retrieved context: "
@@ -491,7 +474,7 @@ def retrieve_and_answer(
 
 
 # ============================================================
-# 15. DIRECT ANSWER
+# 14. DIRECT ANSWER
 # ============================================================
 
 def direct_answer(
@@ -519,7 +502,7 @@ def direct_answer(
 
 
 # ============================================================
-# 16. ROUTING
+# 15. ROUTING
 # ============================================================
 
 def route_by_intent(
@@ -534,7 +517,7 @@ def route_by_intent(
 
 
 # ============================================================
-# 17. REAL LLM - RETRIEVED CONTEXT
+# 16. REAL LLM - RETRIEVED CONTEXT
 # ============================================================
 
 def generate_with_real_llm(
@@ -657,7 +640,7 @@ Do not include Markdown fences.
 
 
 # ============================================================
-# 18. REAL LLM - DIRECT ANSWER
+# 17. REAL LLM - DIRECT ANSWER
 # ============================================================
 
 def generate_direct_with_real_llm(
@@ -771,7 +754,7 @@ Do not include Markdown fences.
 
 
 # ============================================================
-# 19. BUILD LANGGRAPH
+# 18. BUILD LANGGRAPH
 # ============================================================
 
 graph_builder = StateGraph(
@@ -824,14 +807,14 @@ graph = graph_builder.compile()
 
 
 # ============================================================
-# 20. INITIALIZE INDEX
+# 19. INITIALIZE INDEX
 # ============================================================
 
 build_index()
 
 
 # ============================================================
-# 21. ROOT ENDPOINT
+# 20. ROOT ENDPOINT
 # ============================================================
 
 @app.get("/")
@@ -856,7 +839,7 @@ def root():
 
 
 # ============================================================
-# 22. HEALTH ENDPOINT
+# 21. HEALTH ENDPOINT
 # ============================================================
 
 @app.get("/health")
@@ -881,7 +864,7 @@ def health():
 
 
 # ============================================================
-# 23. ASK ENDPOINT
+# 22. ASK ENDPOINT
 # ============================================================
 
 @app.post(
@@ -917,7 +900,7 @@ def ask_question(
 
 
 # ============================================================
-# 24. LOCAL SERVER
+# 23. LOCAL SERVER
 # ============================================================
 
 if __name__ == "__main__":
