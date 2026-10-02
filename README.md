@@ -32,3 +32,27 @@ SQLite Database
 SQL Queries
      ↓
 Analysis Output
+
+
+## 🚀 Live Demo
+
+The Zepto Support Assistant is deployed on Render and available online.
+
+**Live API:**
+https://zepto-ai-ml-capstone-1.onrender.com
+
+**Swagger API Documentation:**
+https://zepto-ai-ml-capstone-1.onrender.com/docs
+
+### Example API Query
+
+**Question:**
+`What is Zepto's refund policy?`
+
+The API returns:
+
+* AI-generated policy answer
+* Retrieved source documents
+* Confidence score
+
+The application uses FastAPI, ChromaDB, LangGraph, and policy documents to provide a retrieval-based customer support assistant.
